@@ -60,6 +60,8 @@ class ProductsController < ApplicationController
 
   # PATCH/PUT /products/1
   def update
+    return unauthorized_error unless current_user.admin?
+
     if @product.update(product_params)
       render json: @product
     else
@@ -69,6 +71,8 @@ class ProductsController < ApplicationController
 
   # DELETE /products/1
   def destroy
+    return unauthorized_error unless current_user.admin?
+
     product_model = ProductModel.find(params[:id])
     product = product_model.product
     ActiveRecord::Base.transaction do
