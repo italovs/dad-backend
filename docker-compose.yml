@@ -16,7 +16,7 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
-    command: bash -c "rm -f tmp/pids/server.pid && bundle install && bundle exec rails s -b '0.0.0.0'"
+    command: bash -c "rm -f tmp/pids/server.pid && bundle install && bundle exec rails db:create && bundle exec rails db:migrate &&  bundle exec rails s -b '0.0.0.0'"
     volumes:
       - .:/myapp
     ports:
@@ -24,11 +24,23 @@ services:
     depends_on:
       - db
     environment:
-      DB_HOST: 192.168.18.10
+      DB_HOST: 192.168.18.135
       DB_PORT: 5433
       DB_USERNAME: postgres
       DB_PASSWORD: password
       DATABASE_NAME: myapp_development
+      DEVISE_JWT_SECRET_KEY: "b4bfb2129d1bcd25c4bd90bc27b9b61aeb4334d6dd2fdabde8dab77346c1335000a0baf89a1cb7cde97472d04c21aba8b3abaf21f689c7122df2f6a465276c4f"
+  
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: asdfg
+    ports:
+      - "8090:80"
+    depends_on:
+      - db
 
 volumes:
   db_data:
