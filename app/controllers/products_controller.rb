@@ -1,5 +1,5 @@
 class ProductsController < ApplicationController
-  before_action :set_product, only: %i[update]
+  before_action :set_product, only: %i[update show]
   before_action :authenticate_user!, only: %i[create update delete]
 
   # GET /products
@@ -19,11 +19,18 @@ class ProductsController < ApplicationController
 
   # GET /products/1
   def show
-    model = ProductModel.find(params[:id])
+    product_hash = {
+      product: {
+        id: @product.id,
+        name: @product.name,
+        category: @product.category,
+        created_at: @product.created_at,
+        updated_at: @product.updated_at
+      },
+      product_models: @product.product_models.map { |model| parse_product_model_to_hash(model) }
+    }
 
-    product = parse_product_to_hash(model)
-
-    render json: product
+    render json: product_hash
   end
 
   # POST /products
@@ -31,9 +38,9 @@ class ProductsController < ApplicationController
     return unauthorized_error unless current_user.admin?
 
     product_params = params[:product]
-    product_models_params = [product_params.fetch(:product_models, {}).values].flatten
+    product_models_params = product_params[:product_models]
 
-    return unprocessable_entity('Product must have at least one Model') if product_models_params.blank?
+    return unprocessable_entity('Product must have at least one model') if product_models_params.blank?
 
     ActiveRecord::Base.transaction do
       @product = Product.create!(
@@ -42,17 +49,16 @@ class ProductsController < ApplicationController
       )
 
       product_models_params.each do |product_model_params|
-        product_model_params[:products_id] = @product.id
-
         ProductModel.create!(
           description: product_model_params[:description],
           price: product_model_params[:price],
           quantity: product_model_params[:quantity],
           products_id: @product.id,
-          image: product_model_params[:image]
+          # url: product_model_params[:url] # TODO: Adicionar URL quando for implementado
         )
       end
-      render json: @product, status: :created, location: @product
+
+      render json: { product: @product, product_models: @product.product_models }, status: :created, location: @product
     end
   rescue StandardError => e
     render json: e.message, status: :unprocessable_entity
@@ -85,16 +91,10 @@ class ProductsController < ApplicationController
 
   # Use callbacks to share common setup or constraints between actions.
   def set_product
-    @product = Product.find(params[:id])
+    @product = Product.includes(:product_models).find(params[:id])
   end
 
   def parse_product_to_hash(product_model)
-    url = if product_model.image.attached?
-            rails_blob_url(product_model.image, only_path: true)
-          else
-            ''
-          end
-
     {
       id: product_model.id,
       name: product_model.product.name,
@@ -104,12 +104,27 @@ class ProductsController < ApplicationController
       quantity: product_model.quantity,
       created_at: product_model.created_at,
       updated_at: product_model.updated_at,
-      url: url
+      # url: product_model.url # TODO: Adicionar URL quando for implementado
+    }
+  end
+
+  def parse_product_model_to_hash(product_model)
+    {
+      id: product_model.id,
+      description: product_model.description,
+      price: product_model.price,
+      quantity: product_model.quantity,
+      # url: product_model.url, # TODO: Adicionar URL quando for implementado
+      created_at: product_model.created_at,
+      updated_at: product_model.updated_at
     }
   end
 
   # Only allow a list of trusted parameters through.
   def product_params
-    params.require(:product).permit(:name, :category, product_models: %i[description price quantity image])
+    params.require(:product).permit(
+      :name, :category,
+      product_models: %i[description price quantity] # TODO: Adicionar URL quando for implementado
+    )
   end
 end

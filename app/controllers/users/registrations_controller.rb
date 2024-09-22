@@ -64,9 +64,10 @@ class Users::RegistrationsController < Devise::RegistrationsController
 
   def respond_with(current_user, _opts = {})
     if resource.persisted?
+      token = request.env['warden-jwt_auth.token']
       render json: {
         status: {code: 200, message: 'Signed up successfully.'},
-        data: current_user
+        data: { user: current_user, token: token }
       }
     else
       render json: {

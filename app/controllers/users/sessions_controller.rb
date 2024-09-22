@@ -27,13 +27,15 @@ class Users::SessionsController < Devise::SessionsController
   # end
 
   def respond_with(current_user, _opts = {})
+    token = request.env['warden-jwt_auth.token']
     render json: {
       status: { 
         code: 200, message: 'Logged in successfully.',
-        data: { user: current_user }
+        data: { user: current_user, token: token }
       }
     }, status: :ok
   end
+
   def respond_to_on_destroy
     if request.headers['Authorization'].present?
       jwt_payload = JWT.decode(request.headers['Authorization'].split(' ').last, ENV['DEVISE_JWT_SECRET_KEY']).first
