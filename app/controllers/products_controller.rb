@@ -6,6 +6,7 @@ class ProductsController < ApplicationController
   def index
     @products = ProductModel
                 .select('product_models.*, MIN(price) AS min_price')
+                .where('quantity > ?', 0)
                 .group(:products_id, :id)
                 .having('price = MIN(price)')
 
@@ -54,7 +55,6 @@ class ProductsController < ApplicationController
       render json: @product, status: :created, location: @product
     end
   rescue StandardError => e
-    puts(e)
     render json: e.message, status: :unprocessable_entity
   end
 
