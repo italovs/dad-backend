@@ -27,7 +27,8 @@ class ProductsController < ApplicationController
   def home
     expensive_products = ProductModel
                           .select('product_models.*, MIN(product_models.price) AS min_price')
-                          .joins("JOIN products on products.id = product_models.products_id")                          .where('product_models.quantity > ?', 0)
+                          .joins("JOIN products on products.id = product_models.products_id")                          
+                          .where('product_models.quantity > ?', 0)
                           .group(:products_id, :id)
                           .order('min_price DESC')
                           .limit(3)
