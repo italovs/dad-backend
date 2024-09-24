@@ -196,8 +196,8 @@ class ProductsController < ApplicationController
       price: product_model.price,
       quantity: product_model.quantity,
       created_at: product_model.created_at,
-      updated_at: product_model.updated_at
-      # url: product_model.url # TODO: Adicionar URL quando for implementado
+      updated_at: product_model.updated_at,
+      url: product_model.image.attached? ? url_for(product_model.image) : ""
     }
   end
 
@@ -207,7 +207,7 @@ class ProductsController < ApplicationController
       description: product_model.description,
       price: product_model.price,
       quantity: product_model.quantity,
-      url: url_for(product_model.image), # TODO: Adicionar URL quando for implementado
+      url: product_model.image.attached? ? url_for(product_model.image) : "",
       created_at: product_model.created_at,
       updated_at: product_model.updated_at
     }
@@ -217,7 +217,7 @@ class ProductsController < ApplicationController
   def product_params
     params.require(:product).permit(
       :name, :category,
-      product_models: %i[description price quantity] # TODO: Adicionar URL quando for implementado
+      product_models: %i[description price quantity url]
     )
   end
 

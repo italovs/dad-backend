@@ -37,7 +37,8 @@ class OrdersController < ApplicationController
         category: order_product.product_model.product.category,
         description: order_product.product_model.description,
         price: order_product.price,
-        quantity: order_product.quantity
+        quantity: order_product.quantity,
+        url: order_product.product_model.image.attached? ? url_for(order_product.product_model.image) : ""
       }
     end
 
