@@ -31,7 +31,7 @@ class OrdersController < ApplicationController
 
     order_products_json = @order.order_products.map do |order_product|
       {
-        product_model_id: order_product.product_id,
+        id: order_product.product_id,
         name: order_product.product_model.product.name,
         category: order_product.product_model.product.category,
         description: order_product.product_model.description,
@@ -76,7 +76,7 @@ class OrdersController < ApplicationController
 
         OrderProduct.create(
           order_id: @order.id,
-          product_id: product.id,
+          product_model_id: product.id,
           price: product.price,
           quantity: quantity
         )

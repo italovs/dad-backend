@@ -19,4 +19,4 @@ COPY . .
 EXPOSE 3000
 
 # Configurar o ponto de entrada padrão
-CMD ["bash"]
+CMD CMD ["bash", "-c", "rm -f /myapp/tmp/pids/server.pid"]

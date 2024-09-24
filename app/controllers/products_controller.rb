@@ -1,6 +1,6 @@
 class ProductsController < ApplicationController
   before_action :set_product, only: %i[update show]
-  before_action :authenticate_user!, only: %i[create update delete]
+  before_action :authenticate_user!, only: %i[create update delete aws_upload_link]
 
   # GET /products
   def index
@@ -12,8 +12,18 @@ class ProductsController < ApplicationController
 
     if params[:search].present?
       search_term = "%#{params[:search]}%"
-      @products = @products.joins("LEFT JOIN products on products.id = product_models.products_id")
-                           .where('products.name ILIKE ? OR product_models.description ILIKE ?', "%#{search_term}%", "%#{search_term}%")
+
+      @products = @products.joins('LEFT JOIN products on products.id = product_models.products_id')
+                           .where(
+                             'products.name ILIKE ? OR product_models.description ILIKE ?',
+                             search_term,
+                             search_term
+                           )
+    end
+
+    if params[:category].present?
+      @products = @products.joins('LEFT JOIN products on products.id = product_models.products_id')
+                           .where(products: { category: params[:category] })
     end
 
     products_hash = @products.map do |product|
@@ -26,23 +36,23 @@ class ProductsController < ApplicationController
   # GET /products/home
   def home
     expensive_products = ProductModel
-                          .select('product_models.*, MIN(product_models.price) AS min_price')
-                          .joins("JOIN products on products.id = product_models.products_id")                          
-                          .where('product_models.quantity > ?', 0)
-                          .group(:products_id, :id)
-                          .order('min_price DESC')
-                          .limit(3)
+                         .select('product_models.*, MIN(product_models.price) AS min_price')
+                         .joins('JOIN products on products.id = product_models.products_id')
+                         .where('product_models.quantity > ?', 0)
+                         .group(:products_id, :id)
+                         .order('min_price DESC')
+                         .limit(3)
 
-    excluded_categories = expensive_products.map{ |product_model| product_model.product.category }
+    excluded_categories = expensive_products.map { |product_model| product_model.product.category }
 
     category_products = ProductModel
-                          .select('product_models.*, MIN(product_models.price) AS min_price')
-                          .joins("JOIN products on products.id = product_models.products_id")
-                          .where('product_models.quantity > ?', 0)
-                          .where.not(products: { category: excluded_categories })
-                          .group(:products_id, :id)
-                          .group_by { |model| model.product.category }
-                          .map { |_, models| models.first }
+                        .select('product_models.*, MIN(product_models.price) AS min_price')
+                        .joins('JOIN products on products.id = product_models.products_id')
+                        .where('product_models.quantity > ?', 0)
+                        .where.not(products: { category: excluded_categories })
+                        .group(:products_id, :id)
+                        .group_by { |model| model.product.category }
+                        .map { |_, models| models.first }
 
     expensive_products_hash = expensive_products.map { |product_model| parse_product_to_hash(product_model) }
 
@@ -90,7 +100,7 @@ class ProductsController < ApplicationController
           description: product_model_params[:description],
           price: product_model_params[:price],
           quantity: product_model_params[:quantity],
-          products_id: @product.id,
+          products_id: @product.id
           # url: product_model_params[:url] # TODO: Adicionar URL quando for implementado
         )
       end
@@ -99,6 +109,12 @@ class ProductsController < ApplicationController
     end
   rescue StandardError => e
     render json: e.message, status: :unprocessable_entity
+  end
+
+  def categories
+    products_categories = Product.all.pluck(:category).uniq
+
+    render json: { categories: products_categories }, status: :ok
   end
 
   # PATCH/PUT /products/1
@@ -124,6 +140,30 @@ class ProductsController < ApplicationController
     end
   end
 
+  def aws_upload_link
+    return unauthorized_error unless current_user.admin?
+
+    bucket = "dad-backend" # ENV['bucket']
+    aws_region = "us-east-1" # ENV['AWS_BUCKET_REGION']
+    filename = params[:filename]
+    object_key = "#{SecureRandom.uuid}_#{filename}"
+
+    # s3_client = Aws::S3::Client.new(region: aws_region)
+    s3_client = Aws::S3::Resource.new(region: aws_region)
+    obj = s3_client.bucket(bucket).object(object_key)
+
+    presigned_url = obj.presigned_url(:put, expires_in: 600)
+
+    # presigned_url = s3_client.presigned_url(
+    #   :put_object,
+    #   bucket: bucket,
+    #   key: object_key,
+    #   expires_in: 600
+    # )
+
+    render json: { url: presigned_url, key: object_key }
+  end
+
   private
 
   # Use callbacks to share common setup or constraints between actions.
@@ -142,7 +182,7 @@ class ProductsController < ApplicationController
       price: product_model.price,
       quantity: product_model.quantity,
       created_at: product_model.created_at,
-      updated_at: product_model.updated_at,
+      updated_at: product_model.updated_at
       # url: product_model.url # TODO: Adicionar URL quando for implementado
     }
   end

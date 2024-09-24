@@ -5,7 +5,7 @@ Rails.application.routes.draw do
   resources :orders
   resources :product_models
   resources :products
-  
+
   devise_for :users, path: '', path_names: {
                                  sign_in: 'login',
                                  sign_out: 'logout',
@@ -16,6 +16,10 @@ Rails.application.routes.draw do
                        registrations: 'users/registrations'
                      }
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
+
+  get "/categories", to: "products#categories", as: "product_categories"
+
+  get "/aws-upload-link", to: "products#aws_upload_link", as: "aws_upload_link"
 
   # Defines the root path route ("/")
   # root "articles#index"
