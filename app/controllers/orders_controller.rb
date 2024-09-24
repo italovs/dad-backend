@@ -15,6 +15,7 @@ class OrdersController < ApplicationController
     orders_json = @orders.map do |order|
       {
         id: order.id,
+        status: order.status,
         total_price: order.total_price,
         created_at: order.created_at,
         updated_at: order.updated_at,
@@ -42,6 +43,7 @@ class OrdersController < ApplicationController
 
     order_json = {
       id: @order.id,
+      status: @order.status,
       user_id: @order.users_id,
       product_models: order_products_json,
       total_price: @order.total_price,
