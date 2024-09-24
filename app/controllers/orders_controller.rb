@@ -31,7 +31,7 @@ class OrdersController < ApplicationController
 
     order_products_json = @order.order_products.map do |order_product|
       {
-        id: order_product.product_id,
+        id: order_product.product_model_id,
         name: order_product.product_model.product.name,
         category: order_product.product_model.product.category,
         description: order_product.product_model.description,
@@ -55,16 +55,27 @@ class OrdersController < ApplicationController
   def create
     total_price = 0
     product_models = params[:order]['product_models'].map do |product_params|
+      product_model = ProductModel.find_by!(
+        'quantity >= ? and id = ?',
+        product_params[:quantity],
+        product_params[:id]
+      )
+
       [
-        ProductModel.find_by!('quantity >= ? and id = ?', product_params[:quantity], product_params[:id]),
+        product_model,
         product_params[:quantity]
       ]
     end
 
+    puts product_models
+
     raise ActiveRecord::RecordNotFound if product_models.blank?
 
     product_models.each do |product_model|
-      total_price += (product_model[0].price * product_model[1])
+      unit_price = product_model[0].price
+      product_quantity = product_model[1]
+
+      total_price += (unit_price * product_quantity)
     end
 
     ActiveRecord::Base.transaction do
@@ -74,7 +85,7 @@ class OrdersController < ApplicationController
         product = product_model[0]
         quantity = product_model [1]
 
-        OrderProduct.create(
+        OrderProduct.create!(
           order_id: @order.id,
           product_model_id: product.id,
           price: product.price,
