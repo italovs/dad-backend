@@ -96,13 +96,28 @@ class ProductsController < ApplicationController
       )
 
       product_models_params.each do |product_model_params|
-        ProductModel.create!(
+        product_model = ProductModel.create!(
           description: product_model_params[:description],
           price: product_model_params[:price],
           quantity: product_model_params[:quantity],
           products_id: @product.id
-          # url: product_model_params[:url] # TODO: Adicionar URL quando for implementado
         )
+
+        bucket = ENV['AWS_BUCKET']
+
+        s3_client = create_aws_client
+        resource = Aws::S3::Resource.new(client: s3_client)
+        obj = resource.bucket(bucket).object(product_model_params[:image_key])
+
+        blob = ActiveStorage::Blob.create_before_direct_upload!(
+          filename: File.basename(product_model_params[:image_key]),
+          byte_size: obj.size,
+          checksum: obj.etag.gsub('"', ""),
+          key: product_model_params[:image_key],
+          content_type: obj.content_type
+        )
+
+        product_model.image.attach(blob)
       end
 
       render json: { product: @product, product_models: @product.product_models }, status: :created, location: @product
@@ -143,23 +158,22 @@ class ProductsController < ApplicationController
   def aws_upload_link
     return unauthorized_error unless current_user.admin?
 
-    bucket = "dad-backend" # ENV['bucket']
-    aws_region = "us-east-1" # ENV['AWS_BUCKET_REGION']
+    bucket = ENV['AWS_BUCKET']
+
     filename = params[:filename]
     object_key = "#{SecureRandom.uuid}_#{filename}"
 
     # s3_client = Aws::S3::Client.new(region: aws_region)
-    s3_client = Aws::S3::Resource.new(region: aws_region)
-    obj = s3_client.bucket(bucket).object(object_key)
+    s3_client = create_aws_client
 
-    presigned_url = obj.presigned_url(:put, expires_in: 600)
+    signer = Aws::S3::Presigner.new(client: s3_client)
 
-    # presigned_url = s3_client.presigned_url(
-    #   :put_object,
-    #   bucket: bucket,
-    #   key: object_key,
-    #   expires_in: 600
-    # )
+    presigned_url = signer.presigned_url(
+      :put_object,
+      bucket: bucket,
+      key: object_key,
+      expires_in: 600
+    )
 
     render json: { url: presigned_url, key: object_key }
   end
@@ -193,7 +207,7 @@ class ProductsController < ApplicationController
       description: product_model.description,
       price: product_model.price,
       quantity: product_model.quantity,
-      # url: product_model.url, # TODO: Adicionar URL quando for implementado
+      url: url_for(product_model.image), # TODO: Adicionar URL quando for implementado
       created_at: product_model.created_at,
       updated_at: product_model.updated_at
     }
@@ -205,5 +219,13 @@ class ProductsController < ApplicationController
       :name, :category,
       product_models: %i[description price quantity] # TODO: Adicionar URL quando for implementado
     )
+  end
+
+  def create_aws_client
+    aws_region = ENV['AWS_REGION']
+    access_key = ENV['AWS_ACCESS_KEY']
+    secret_key = ENV['AWS_SECRET_KEY']
+
+    Aws::S3::Client.new(region: aws_region, credentials: Aws::Credentials.new(access_key, secret_key))
   end
 end
